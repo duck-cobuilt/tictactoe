@@ -66,15 +66,16 @@ body {
 /* ========= FIREBASE CONFIG ========= */
 /* Replace ALL values */
 
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID"
-};
+  apiKey: "AIzaSyCT6Cu6UCcQzsxUOTHCskTzXCCMsmSDzFU",
+  authDomain: "realtime-tic-tac-toe-98cfc.firebaseapp.com",
+  projectId: "realtime-tic-tac-toe-98cfc",
+  storageBucket: "realtime-tic-tac-toe-98cfc.firebasestorage.app",
+  messagingSenderId: "621024160507",
+  appId: "1:621024160507:web:0dc7713e199bd4d8d71e5e",
+  measurementId: "G-TG3JHTFNXH"
+};;
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
@@ -190,3 +191,4 @@ function checkBingo() {
 </script>
 </body>
 </html>
+
