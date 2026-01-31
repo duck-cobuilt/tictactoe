@@ -2,253 +2,191 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Tic Tac Toe Multiplayer</title>
+<title>Multiplayer Bingo</title>
 
 <style>
-  body {
-    font-family: system-ui, sans-serif;
-    background: #111;
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-  }
+body {
+  margin: 0;
+  height: 100vh;
+  background: #0f172a;
+  color: white;
+  font-family: system-ui, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-  .game {
-    text-align: center;
-  }
+.game {
+  text-align: center;
+}
 
-  .board {
-    display: grid;
-    grid-template-columns: repeat(3, 100px);
-    gap: 10px;
-    margin: 20px auto;
-  }
+.board {
+  display: grid;
+  grid-template-columns: repeat(5, 70px);
+  gap: 8px;
+  margin: 20px auto;
+}
 
-  .cell {
-    width: 100px;
-    height: 100px;
-    background: #222;
-    font-size: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    user-select: none;
-  }
+.cell {
+  background: #1e293b;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 8px;
+  user-select: none;
+}
 
-  .cell:hover {
-    background: #333;
-  }
+.cell.marked {
+  background: #334155;
+  text-decoration: line-through;
+}
 
-  .win {
-    background: #444 !important;
-  }
-
-  .status {
-    margin-top: 10px;
-    min-height: 24px;
-  }
+.status {
+  margin-top: 10px;
+  min-height: 24px;
+}
 </style>
 </head>
 <body>
 
 <div class="game">
-  <h1>Tic Tac Toe</h1>
-  <div class="board" id="board"></div>
-  <div class="status" id="status">Loading…</div>
+  <h1>BINGO</h1>
+  <div id="board" class="board"></div>
+  <div id="status" class="status">Connecting…</div>
 </div>
 
-<!-- ===== STEP 1: BASIC JS CHECK ===== -->
-<script>
-  alert("JS LOADED");
-  console.log("SCRIPT STARTED");
-</script>
-
-<!-- ===== STEP 2: FIREBASE SDKs ===== -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-/* =========================================================
-   STEP 3: FIREBASE CONFIG (REPLACE VALUES ONLY)
-   ========================================================= */
+/* ========= FIREBASE CONFIG ========= */
+/* Replace ALL values */
 
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyCT6Cu6UCcQzsxUOTHCskTzXCCMsmSDzFU",
-  authDomain: "realtime-tic-tac-toe-98cfc.firebaseapp.com",
-  projectId: "realtime-tic-tac-toe-98cfc",
-  storageBucket: "realtime-tic-tac-toe-98cfc.firebasestorage.app",
-  messagingSenderId: "621024160507",
-  appId: "1:621024160507:web:0dc7713e199bd4d8d71e5e",
-  measurementId: "G-TG3JHTFNXH"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "SENDER_ID",
+  appId: "APP_ID"
 };
 
 firebase.initializeApp(firebaseConfig);
-console.log("Firebase initialized");
-
 const db = firebase.database();
+console.log("Firebase connected");
 
-/* =========================================================
-   STEP 4: CONNECTION CHECK
-   ========================================================= */
-
-firebase.database().ref(".info/connected").on("value", snap => {
-  console.log("Firebase connected:", snap.val());
-});
-
-/* =========================================================
-   STEP 5: ROOM SETUP
-   ========================================================= */
+/* ========= ROOM ========= */
 
 const params = new URLSearchParams(location.search);
-const room =
-  params.get("room") || Math.random().toString(36).slice(2, 7);
-
+const room = params.get("room") || Math.random().toString(36).slice(2, 7);
 history.replaceState({}, "", "?room=" + room);
-console.log("Room ID:", room);
 
-const roomRef = db.ref("rooms/" + room);
+const roomRef = db.ref("bingo/" + room);
+console.log("Room:", room);
 
-/* =========================================================
-   STEP 6: GAME STATE
-   ========================================================= */
+/* ========= STATE ========= */
 
-let mySymbol = null;
-let board = Array(9).fill("");
-let turn = "X";
+let myId;
+let myBoard = [];
+let marked = {};
 let winner = null;
-let winningLine = [];
 
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
 
-/* =========================================================
-   STEP 7: CREATE BOARD UI
-   ========================================================= */
+/* ========= UTILS ========= */
 
-for (let i = 0; i < 9; i++) {
-  const cell = document.createElement("div");
-  cell.className = "cell";
-  cell.onclick = () => makeMove(i);
-  boardEl.appendChild(cell);
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
-console.log("Board created");
+/* ========= RENDER ========= */
 
-/* =========================================================
-   STEP 8: JOIN ROOM
-   ========================================================= */
+function renderBoard() {
+  boardEl.innerHTML = "";
+  myBoard.forEach(n => {
+    const d = document.createElement("div");
+    d.className = "cell";
+    d.textContent = n;
+    if (marked[n]) d.classList.add("marked");
+    d.onclick = () => markNumber(n);
+    boardEl.appendChild(d);
+  });
+}
+
+/* ========= JOIN ========= */
 
 roomRef.child("players").once("value", snap => {
   const players = snap.val() || {};
-  const count = Object.keys(players).length;
-
-  console.log("Players in room:", count);
-
-  if (count >= 2) {
+  if (Object.keys(players).length >= 2) {
     statusEl.textContent = "Room full";
     return;
   }
 
-  mySymbol = count === 0 ? "X" : "O";
-  roomRef.child("players").push(mySymbol);
+  myId = roomRef.child("players").push(true).key;
 
-  statusEl.textContent = "You are " + mySymbol;
-  console.log("Assigned symbol:", mySymbol);
+  myBoard = shuffle(
+    Array.from({ length: 25 }, (_, i) => i + 1)
+  );
+
+  roomRef.child("boards/" + myId).set(myBoard);
+
+  statusEl.textContent = "Game started";
 });
 
-/* =========================================================
-   STEP 9: LISTEN FOR GAME UPDATES
-   ========================================================= */
+/* ========= SYNC ========= */
 
 roomRef.on("value", snap => {
   const data = snap.val();
   if (!data) return;
 
-  board = data.board || board;
-  turn = data.turn || turn;
+  marked = data.marked || {};
   winner = data.winner || null;
-  winningLine = data.winningLine || [];
 
-  updateUI();
-  console.log("Game updated:", data);
-});
-
-/* =========================================================
-   STEP 10: GAME LOGIC
-   ========================================================= */
-
-function checkWinner(b) {
-  const wins = [
-    [0,1,2], [3,4,5], [6,7,8],
-    [0,3,6], [1,4,7], [2,5,8],
-    [0,4,8], [2,4,6]
-  ];
-
-  for (const line of wins) {
-    const [a, b1, c] = line;
-    if (b[a] && b[a] === b[b1] && b[a] === b[c]) {
-      return { winner: b[a], line };
-    }
-  }
-
-  if (b.every(cell => cell !== "")) {
-    return { winner: "draw", line: [] };
-  }
-
-  return null;
-}
-
-function makeMove(i) {
-  console.log("Cell clicked:", i);
-
-  if (!mySymbol) return;
-  if (winner) return;
-  if (board[i] !== "") return;
-  if (turn !== mySymbol) return;
-
-  board[i] = mySymbol;
-  turn = mySymbol === "X" ? "O" : "X";
-
-  const result = checkWinner(board);
-  if (result) {
-    winner = result.winner;
-    winningLine = result.line;
-  }
-
-  roomRef.update({ board, turn, winner, winningLine });
-}
-
-/* =========================================================
-   STEP 11: UPDATE UI
-   ========================================================= */
-
-function updateUI() {
-  [...boardEl.children].forEach((cell, i) => {
-    cell.textContent = board[i];
-    cell.classList.toggle("win", winningLine.includes(i));
-  });
-
-  if (winner === "draw") {
-    statusEl.textContent = "Draw";
-    return;
-  }
+  renderBoard();
 
   if (winner) {
     statusEl.textContent =
-      winner === mySymbol ? "You won 🎉" : "You lost";
-    return;
+      winner === myId ? "You won 🎉" : "You lost 😔";
   }
+});
 
-  statusEl.textContent =
-    turn === mySymbol ? "Your turn" : "Opponent's turn";
+/* ========= GAME ========= */
+
+function markNumber(n) {
+  if (winner || marked[n]) return;
+
+  marked[n] = true;
+  roomRef.update({ marked });
+
+  if (checkBingo() >= 5) {
+    roomRef.update({ winner: myId });
+  }
+}
+
+function checkBingo() {
+  const m = i => marked[myBoard[i]];
+
+  const lines = [
+    [0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14],
+    [15,16,17,18,19],[20,21,22,23,24],
+    [0,5,10,15,20],[1,6,11,16,21],
+    [2,7,12,17,22],[3,8,13,18,23],
+    [4,9,14,19,24],
+    [0,6,12,18,24],[4,8,12,16,20]
+  ];
+
+  return lines.filter(line => line.every(m)).length;
 }
 </script>
-
 </body>
 </html>
-
