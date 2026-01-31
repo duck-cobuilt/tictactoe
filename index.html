@@ -2,50 +2,48 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Tic Tac Toe – Multiplayer</title>
+<title>Tic Tac Toe Multiplayer</title>
+
 <style>
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-  background: #0f2027;
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
+  body {
+    font-family: system-ui, sans-serif;
+    background: #111;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
 
-.game {
-  text-align: center;
-}
+  .game {
+    text-align: center;
+  }
 
-.board {
-  display: grid;
-  grid-template-columns: repeat(3, 100px);
-  gap: 10px;
-  margin: 20px auto;
-}
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+    gap: 10px;
+    margin: 20px auto;
+  }
 
-.cell {
-  width: 100px;
-  height: 100px;
-  background: #203a43;
-  font-size: 48px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  border-radius: 10px;
-}
+  .cell {
+    width: 100px;
+    height: 100px;
+    background: #222;
+    font-size: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
 
-.cell:hover {
-  background: #2c5364;
-}
+  .cell:hover {
+    background: #333;
+  }
 
-.status {
-  margin-top: 10px;
-  opacity: 0.8;
-}
+  .status {
+    margin-top: 10px;
+  }
 </style>
 </head>
 <body>
@@ -53,34 +51,57 @@ body {
 <div class="game">
   <h1>Tic Tac Toe</h1>
   <div class="board" id="board"></div>
-  <div class="status" id="status">Waiting…</div>
+  <div class="status" id="status">Loading…</div>
 </div>
 
-<!-- Firebase CDN -->
+<!-- STEP A: VERIFY JS RUNS -->
+<script>
+  alert("JS LOADED");
+  console.log("SCRIPT STARTED");
+</script>
+
+<!-- STEP B: FIREBASE SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-// 🔥 REPLACE WITH YOUR FIREBASE CONFIG
+/* ===========================
+   STEP C: FIREBASE CONFIG
+   =========================== */
+
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "XXXX",
-  appId: "XXXX"
+  // 👇 PASTE YOUR FIREBASE CONFIG HERE
+  // MUST include databaseURL
 };
 
 firebase.initializeApp(firebaseConfig);
+console.log("Firebase initialized");
+
 const db = firebase.database();
 
-// Room logic
+/* ===========================
+   STEP D: CONNECTION CHECK
+   =========================== */
+
+firebase.database().ref(".info/connected").on("value", snap => {
+  console.log("Firebase connected:", snap.val());
+});
+
+/* ===========================
+   STEP E: ROOM SETUP
+   =========================== */
+
 const params = new URLSearchParams(location.search);
-const room = params.get("room") || Math.random().toString(36).slice(2,7);
+const room = params.get("room") || Math.random().toString(36).slice(2, 7);
 history.replaceState({}, "", "?room=" + room);
 
+console.log("Room ID:", room);
+
 const roomRef = db.ref("rooms/" + room);
+
+/* ===========================
+   STEP F: GAME STATE
+   =========================== */
 
 let mySymbol = null;
 let board = Array(9).fill("");
@@ -89,7 +110,10 @@ let turn = "X";
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
 
-// Create board UI
+/* ===========================
+   STEP G: CREATE BOARD UI
+   =========================== */
+
 for (let i = 0; i < 9; i++) {
   const cell = document.createElement("div");
   cell.className = "cell";
@@ -97,15 +121,34 @@ for (let i = 0; i < 9; i++) {
   boardEl.appendChild(cell);
 }
 
-// Join room
+console.log("Board created");
+
+/* ===========================
+   STEP H: JOIN ROOM
+   =========================== */
+
 roomRef.child("players").once("value", snap => {
-  const count = snap.numChildren();
+  const players = snap.val() || {};
+  const count = Object.keys(players).length;
+
+  console.log("Players in room:", count);
+
+  if (count >= 2) {
+    statusEl.textContent = "Room full";
+    return;
+  }
+
   mySymbol = count === 0 ? "X" : "O";
   roomRef.child("players").push(mySymbol);
+
   statusEl.textContent = "You are " + mySymbol;
+  console.log("Assigned symbol:", mySymbol);
 });
 
-// Listen for updates
+/* ===========================
+   STEP I: LISTEN FOR UPDATES
+   =========================== */
+
 roomRef.on("value", snap => {
   const data = snap.val();
   if (!data) return;
@@ -114,10 +157,19 @@ roomRef.on("value", snap => {
   turn = data.turn || turn;
 
   updateUI();
+  console.log("Game updated", data);
 });
 
+/* ===========================
+   STEP J: MAKE MOVE
+   =========================== */
+
 function makeMove(i) {
-  if (board[i] || turn !== mySymbol) return;
+  console.log("Cell clicked:", i);
+
+  if (!mySymbol) return;
+  if (board[i] !== "") return;
+  if (turn !== mySymbol) return;
 
   board[i] = mySymbol;
   turn = mySymbol === "X" ? "O" : "X";
@@ -125,9 +177,17 @@ function makeMove(i) {
   roomRef.update({ board, turn });
 }
 
+/* ===========================
+   STEP K: UPDATE UI
+   =========================== */
+
 function updateUI() {
-  [...boardEl.children].forEach((c, i) => c.textContent = board[i]);
-  statusEl.textContent = turn === mySymbol ? "Your turn" : "Opponent's turn";
+  [...boardEl.children].forEach((c, i) => {
+    c.textContent = board[i];
+  });
+
+  statusEl.textContent =
+    turn === mySymbol ? "Your turn" : "Opponent's turn";
 }
 </script>
 
